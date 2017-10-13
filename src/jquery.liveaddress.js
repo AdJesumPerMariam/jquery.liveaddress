@@ -48,7 +48,9 @@
 		submitSelector: "[type=submit], [type=image], [type=button]:last, button:last", // Selector to find a likely submit button or submit image (in a form)
 		target: "US",
 		preferRatio: 0.333333333,
-		ajaxSettings: {}
+		ajaxSettings: {},
+		popupPositionLeft: '0%', // Positions the center of the popup relative to the total width of the address form
+		popupPositionTop: '0%' // Positions the center of the popup relative to the total height of the address form
 	};
 	var config = {}; // Configuration settings as set by the user or just the defaults
 	var forms = []; // List of forms (which hold lists of addresses)
@@ -130,6 +132,8 @@
 		config.agent = typeof config.agent === "undefined" ? "" : config.agent;
 		config.preferRatio = config.preferRatio || defaults.preferRatio;
 		config.ajaxSettings = config.ajaxSettings || defaults.ajaxSettings;
+		config.popupPositionLeft = config.popupPositionLeft || defaults.popupPositionLeft;
+		config.popupPositionTop = config.popupPositionTop || defaults.popupPositionTop;
 
 		if (typeof config.autocomplete === "number" && config.autocomplete < 1) {
 			config.autocomplete = false;
@@ -599,11 +603,13 @@
 							.css("top", offset.top + "px")
 							.css("left", offset.left + "px");
 
-						var addrOffset = addr.corners(); // Position of any popup windows
-						$(".smarty-popup.smarty-addr-" + addr.id())
-							.parent(".smarty-ui")
-							.css("top", addrOffset.top + "px")
-							.css("left", addrOffset.left + "px");
+						var smartyPopup = $(".smarty-popup.smarty-addr-" + addr.id()).parent('.smarty-ui');
+						if (smartyPopup) {
+							var addrOffset = addr.corners(false, {width: smartyPopup.width(), height: smartyPopup.height()}); // Position of any popup windows
+							smartyPopup
+								.css("top", addrOffset.top + "px")
+								.css("left", addrOffset.left + "px");
+						}
 
 						if (config.autocomplete) { // Position of autocomplete boxes
 							var containerUi = $(".smarty-autocomplete.smarty-addr-" + addr.id()).closest(".smarty-ui");
@@ -1420,8 +1426,7 @@
 
 			var addr = data.address;
 			var response = data.response;
-			var corners = addr.corners();
-			corners.width = 294;
+			var corners = addr.corners(false, {width: 294});
 
 			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
 				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
@@ -1472,19 +1477,11 @@
 				html += "<a href=\"javascript:\" class=\"smarty-choice smarty-choice-override\">" + config.certifyMessage + "</a>";
 			}
 			html += "</div></div></div>";
-			$(html).hide().appendTo("body").show(defaults.speed);
-
-			// Scroll to it if needed
-			if ($(document).scrollTop() > corners.top - 100 || $(document).scrollTop() < corners.top - $(window).height() + 100) {
-				$("html, body").stop().animate({
-					scrollTop: $(".smarty-popup.smarty-addr-" + addr.id()).offset().top - 100
-				}, 500);
-			}
+			
+			this.showSmartyPopup(html, data, corners);
 
 			data.selectors = {
-				goodAddr: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-choice-list .smarty-choice",
-				useOriginal: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-choice-override",
-				abort: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-abort"
+				goodAddr: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-choice-list .smarty-choice"
 			};
 
 			// User chose a candidate address
@@ -1505,35 +1502,6 @@
 					chosenCandidate: response.raw[$(this).data("index")]
 				});
 			});
-
-			// User wants to revert to what they typed (forced accept)
-			$("body").on("click", data.selectors.useOriginal, data, function (e) {
-				$(this).parents(".smarty-popup").slideUp(defaults.speed, function () {
-					$(this).parent(".smarty-ui").remove();
-					$(this).remove();
-				});
-
-				turnOffAllClicks(e.data.selectors);
-				delete e.data.selectors;
-				trigger("OriginalInputSelected", e.data);
-			});
-
-			// User presses Esc key
-			$(document).keyup(data, function (e) {
-				if (e.keyCode == 27) { //Esc
-					turnOffAllClicks(e.data.selectors);
-					delete e.data.selectors;
-					userAborted($(".smarty-popup.smarty-addr-" + e.data.address.id()), e);
-					suppress(e);
-				}
-			});
-
-			// User clicks "x" in corner or chooses to try a different address (same effect as Esc key)
-			$("body").on("click", data.selectors.abort, data, function (e) {
-				turnOffAllClicks(e.data.selectors);
-				delete e.data.selectors;
-				userAborted($(this).parents(".smarty-popup"), e);
-			});
 		};
 
 		this.showInvalid = function (data) {
@@ -1541,10 +1509,9 @@
 				return;
 
 			var addr = data.address;
-			var corners = addr.corners();
-			corners.width = 300;
+			var corners = {width: 300};
 
-			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
+			var html = "<div class=\"smarty-ui\">" +
 				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
 				"<div class=\"smarty-popup-header smarty-popup-invalid-header\">" + config.invalidMessage + "</div>" +
 				"<div class=\"smarty-popup-typed-address\">" + addr.toString() + "</div>" +
@@ -1556,44 +1523,7 @@
 			}
 			html += "</div></div>";
 
-			$(html).hide().appendTo("body").show(defaults.speed);
-
-			data.selectors = {
-				useOriginal: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-choice-override ",
-				abort: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-abort"
-			};
-
-			// Scroll to it if necessary
-			if ($(document).scrollTop() > corners.top - 100 || $(document).scrollTop() < corners.top - $(window).height() + 100) {
-				$("html, body").stop().animate({
-					scrollTop: $(".smarty-popup.smarty-addr-" + addr.id()).offset().top - 100
-				}, 500);
-			}
-
-			turnOffAllClicks(data.selectors.abort);
-			// User rejects original input and agrees to double-check it
-			$("body").on("click", data.selectors.abort, data, function (e) {
-				userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				delete e.data.selectors;
-				trigger("InvalidAddressRejected", e.data);
-			});
-
-			turnOffAllClicks(data.selectors.useOriginal);
-			// User certifies that what they typed is correct
-			$("body").on("click", data.selectors.useOriginal, data, function (e) {
-				userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				delete e.data.selectors;
-				trigger("OriginalInputSelected", e.data);
-			});
-
-			// User presses esc key
-			$(document).keyup(data, function (e) {
-				if (e.keyCode == 27) { //Esc
-					turnOffAllClicks(e.data.selectors);
-					$(data.selectors.abort).click();
-					userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				}
-			});
+			this.showSmartyPopup(html, data, corners);
 		};
 
 		this.showInvalidCountry = function (data) {
@@ -1601,8 +1531,7 @@
 				return;
 
 			var addr = data.address;
-			var corners = addr.corners();
-			corners.width = 300;
+			var corners = addr.corners(false, {width: 300});
 
 			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
 				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
@@ -1616,52 +1545,14 @@
 			}
 			html += "</div></div>";
 
-			$(html).hide().appendTo("body").show(defaults.speed);
-
-			data.selectors = {
-				useOriginal: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-choice-override ",
-				abort: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-abort"
-			};
-
-			// Scroll to it if necessary
-			if ($(document).scrollTop() > corners.top - 100 || $(document).scrollTop() < corners.top - $(window).height() + 100) {
-				$("html, body").stop().animate({
-					scrollTop: $(".smarty-popup.smarty-addr-" + addr.id()).offset().top - 100
-				}, 500);
-			}
-
-			turnOffAllClicks(data.selectors.abort);
-			// User rejects original input and agrees to double-check it
-			$("body").on("click", data.selectors.abort, data, function (e) {
-				userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				delete e.data.selectors;
-				trigger("InvalidAddressRejected", e.data);
-			});
-
-			turnOffAllClicks(data.selectors.useOriginal);
-			// User certifies that what they typed is correct
-			$("body").on("click", data.selectors.useOriginal, data, function (e) {
-				userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				delete e.data.selectors;
-				trigger("OriginalInputSelected", e.data);
-			});
-
-			// User presses esc key
-			$(document).keyup(data, function (e) {
-				if (e.keyCode == 27) { //Esc
-					turnOffAllClicks(e.data.selectors);
-					$(data.selectors.abort).click();
-					userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				}
-			});
+			this.showSmartyPopup(html, data, corners);
 		};
 
 		this.showMissingSecondary = function (data) {
 			if (!config.ui || !data.address.hasDomFields())
 				return;
 			var addr = data.address;
-			var corners = addr.corners();
-			corners.width = 300;
+			var corners = addr.corners({width: 300});
 
 			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
 				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
@@ -1681,59 +1572,7 @@
 			}
 			html += "</div></div></div>";
 
-			$(html).hide().appendTo("body").show(defaults.speed);
-
-			data.selectors = {
-				useOriginal: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-choice-override ",
-				abort: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-abort",
-				submit: "#smarty-popup-secondary-number-form-submit-button.smarty-addr-" + addr.id()
-			};
-
-			// Scroll to it if necessary
-			if ($(document).scrollTop() > corners.top - 100 || $(document).scrollTop() < corners.top - $(window).height() + 100) {
-				$("html, body").stop().animate({
-					scrollTop: $(".smarty-popup.smarty-addr-" + addr.id()).offset().top - 100
-				}, 500);
-			}
-
-			turnOffAllClicks(data.selectors.abort);
-			// User rejects original input and agrees to double-check it
-			$("body").on("click", data.selectors.abort, data, function (e) {
-				userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				delete e.data.selectors;
-				trigger("InvalidAddressRejected", e.data);
-			});
-
-			turnOffAllClicks(data.selectors.useOriginal);
-			// User certifies that what they typed is correct
-			$("body").on("click", data.selectors.useOriginal, data, function (e) {
-				userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				delete e.data.selectors;
-				trigger("OriginalInputSelected", e.data);
-			});
-
-			turnOffAllClicks(data.selectors.submit);
-			// User enters a secondary address
-			$("body").on("click", data.selectors.submit, data, function (e) {
-				e.data.address.secondary = $("#smarty-popup-secondary-number-input-box.smarty-addr-" + e.data.address.id()).val();
-				if (e.data.address.isFreeform()) {
-					e.data.address.address1 = e.data.response.raw[0].delivery_line_1;
-				}
-				e.data.address.zipcode = e.data.response.raw[0].components.zipcode;
-				userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				delete e.data.selectors;
-				suppress(e);
-				trigger("AddedSecondary", e.data);
-			});
-
-			// User presses esc key
-			$(document).keyup(data, function (e) {
-				if (e.keyCode == 27) { //Esc
-					turnOffAllClicks(e.data.selectors);
-					$(data.selectors.abort).click();
-					userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
-				}
-			});
+			this.showSmartyPopup(html, data, corners);
 		};
 
 		this.showMissingInput = function (data) {
@@ -1741,8 +1580,7 @@
 				return;
 
 			var addr = data.address;
-			var corners = addr.corners();
-			corners.width = 300;
+			var corners = addr.corners({width: 300});
 
 			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
 				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
@@ -1756,12 +1594,18 @@
 			}
 			html += "</div></div>";
 
-			$(html).hide().appendTo("body").show(defaults.speed);
+			this.showSmartyPopup(html, data, corners);
+		};
 
-			data.selectors = {
-				useOriginal: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-choice-override ",
-				abort: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-abort"
-			};
+		this.showSmartyPopup = function (html, data, corners) {
+			var smartyPopup = $(html).hide().appendTo("body");
+			var addr = data.address;
+
+			var corners = addr.corners(false, {width: corners.width, height: smartyPopup.height()});
+			smartyPopup.css('top', corners.top + 'px');
+			smartyPopup.css('left', corners.left + 'px');
+
+			smartyPopup.show(defaults.speed);
 
 			// Scroll to it if necessary
 			if ($(document).scrollTop() > corners.top - 100 || $(document).scrollTop() < corners.top - $(window).height() + 100) {
@@ -1769,6 +1613,11 @@
 					scrollTop: $(".smarty-popup.smarty-addr-" + addr.id()).offset().top - 100
 				}, 500);
 			}
+
+			data.selectors = {
+				useOriginal: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-choice-override ",
+				abort: ".smarty-popup.smarty-addr-" + addr.id() + " .smarty-abort"
+			};
 
 			turnOffAllClicks(data.selectors.abort);
 			// User rejects original input and agrees to double-check it
@@ -1794,8 +1643,7 @@
 					userAborted(".smarty-popup.smarty-addr-" + e.data.address.id(), e);
 				}
 			});
-		};
-
+		}
 	}
 
 	var allStatesByName = {
@@ -2292,7 +2140,7 @@
 			return fullLine;
 		};
 
-		this.corners = function (lastField) {
+		this.corners = function (lastField, forceValue) {
 			var corners = {};
 
 			if (!lastField) {
@@ -2321,6 +2169,19 @@
 
 			corners.width = corners.right - corners.left;
 			corners.height = corners.bottom - corners.top;
+
+			if (forceValue) {
+				$.extend(corners, forceValue);
+			}
+
+			if (!lastField) {
+				var positionLeft = parseFloat(config.popupPositionLeft) / 100;
+				var positionTop = parseFloat(config.popupPositionTop) / 100;
+
+				// Maintain backward compatibility by not repositioning center of form for 0% values
+				if (positionLeft) corners.left = corners.left + (((corners.right - corners.left) * positionLeft) - (corners.width / 2))
+				if (positionTop) corners.top = corners.top + (((corners.bottom - corners.top) * positionTop) - (corners.height / 2));
+			}
 
 			return corners;
 		};
