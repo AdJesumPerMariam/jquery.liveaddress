@@ -604,8 +604,10 @@
 							.css("left", offset.left + "px");
 
 						var smartyPopup = $(".smarty-popup.smarty-addr-" + addr.id()).parent('.smarty-ui');
-						if (smartyPopup) {
-							var addrOffset = addr.corners(false, {width: smartyPopup.width(), height: smartyPopup.height()}); // Position of any popup windows
+						
+						if (smartyPopup && !$(smartyPopup).is(':animated')) {
+
+							var addrOffset = addr.corners(false, {width: smartyPopup.width(), height: smartyPopup.height()});; // Position of any popup windows
 							smartyPopup
 								.css("top", addrOffset.top + "px")
 								.css("left", addrOffset.left + "px");
@@ -1426,10 +1428,9 @@
 
 			var addr = data.address;
 			var response = data.response;
-			var corners = addr.corners(false, {width: 294});
 
-			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
-				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
+			var html = "<div class=\"smarty-ui\">" +
+				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: 294px;\">" +
 				"<div class=\"smarty-popup-header smarty-popup-ambiguous-header\">" + config.ambiguousMessage + "</div>" +
 				"<div class=\"smarty-popup-typed-address\">" + addr.toString() + "</div>" +
 				"<div class=\"smarty-choice-list\">";
@@ -1509,10 +1510,8 @@
 				return;
 
 			var addr = data.address;
-			var corners = {width: 300};
-
 			var html = "<div class=\"smarty-ui\">" +
-				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
+				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: 300px;\">" +
 				"<div class=\"smarty-popup-header smarty-popup-invalid-header\">" + config.invalidMessage + "</div>" +
 				"<div class=\"smarty-popup-typed-address\">" + addr.toString() + "</div>" +
 				"<div class=\"smarty-choice-alt\">" +
@@ -1523,7 +1522,7 @@
 			}
 			html += "</div></div>";
 
-			this.showSmartyPopup(html, data, corners);
+			this.showSmartyPopup(html, data);
 		};
 
 		this.showInvalidCountry = function (data) {
@@ -1531,10 +1530,8 @@
 				return;
 
 			var addr = data.address;
-			var corners = addr.corners(false, {width: 300});
-
-			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
-				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
+			var html = "<div class=\"smarty-ui\">" +
+				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: 300px;\">" +
 				"<div class=\"smarty-popup-header smarty-popup-invalid-header\">" + config.invalidCountryMessage + "</div>" +
 				"<div class=\"smarty-popup-typed-address\">" + addr.toString() + "</div>" +
 				"<div class=\"smarty-choice-alt\"><a href=\"javascript:\" class=\"smarty-choice smarty-choice-abort smarty-abort\">" +
@@ -1551,11 +1548,10 @@
 		this.showMissingSecondary = function (data) {
 			if (!config.ui || !data.address.hasDomFields())
 				return;
-			var addr = data.address;
-			var corners = addr.corners({width: 300});
 
-			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
-				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
+			var addr = data.address;
+			var html = "<div class=\"smarty-ui\">" +
+				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: 300px;\">" +
 				"<div class=\"smarty-popup-header smarty-popup-missing-secondary-header\">" + config.missingSecondaryMessage +
 				"</div>" + "<div class=\"smarty-popup-typed-address\">" + addr.toString() + "</div>" +
 				"<form class=\"smarty-popup-secondary-number-form\">" +
@@ -1572,7 +1568,7 @@
 			}
 			html += "</div></div></div>";
 
-			this.showSmartyPopup(html, data, corners);
+			this.showSmartyPopup(html, data);
 		};
 
 		this.showMissingInput = function (data) {
@@ -1580,10 +1576,8 @@
 				return;
 
 			var addr = data.address;
-			var corners = addr.corners({width: 300});
-
-			var html = "<div class=\"smarty-ui\" style=\"top: " + corners.top + "px; left: " + corners.left + "px;\">" +
-				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: " + corners.width + "px;\">" +
+			var html = "<div class=\"smarty-ui\">" +
+				"<div class=\"smarty-popup smarty-addr-" + addr.id() + "\" style=\"width: 300px;\">" +
 				"<div class=\"smarty-popup-header smarty-popup-missing-input-header\">" + config.missingInputMessage + "</div>" +
 				"<div class=\"smarty-popup-typed-address\">" + addr.toString() + "</div>" +
 				"<div class=\"smarty-choice-alt\"><a href=\"javascript:\" " +
@@ -1594,14 +1588,14 @@
 			}
 			html += "</div></div>";
 
-			this.showSmartyPopup(html, data, corners);
+			this.showSmartyPopup(html, data);
 		};
 
-		this.showSmartyPopup = function (html, data, corners) {
+		this.showSmartyPopup = function (html, data) {
 			var smartyPopup = $(html).hide().appendTo("body");
 			var addr = data.address;
 
-			var corners = addr.corners(false, {width: corners.width, height: smartyPopup.height()});
+			var corners = addr.corners(false, {width: smartyPopup.width(), height: smartyPopup.height()});
 			smartyPopup.css('top', corners.top + 'px');
 			smartyPopup.css('left', corners.left + 'px');
 
@@ -2177,12 +2171,11 @@
 			if (!lastField) {
 				var positionLeft = parseFloat(config.popupPositionLeft) / 100;
 				var positionTop = parseFloat(config.popupPositionTop) / 100;
-
+				
 				// Maintain backward compatibility by not repositioning center of form for 0% values
 				if (positionLeft) corners.left = corners.left + (((corners.right - corners.left) * positionLeft) - (corners.width / 2))
 				if (positionTop) corners.top = corners.top + (((corners.bottom - corners.top) * positionTop) - (corners.height / 2));
 			}
-
 			return corners;
 		};
 
