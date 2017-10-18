@@ -2173,8 +2173,8 @@
 				var positionTop = parseFloat(config.popupPositionTop) / 100;
 				
 				// Maintain backward compatibility by not repositioning center of form for 0% values
-				if (positionLeft) corners.left = corners.left + (((corners.right - corners.left) * positionLeft) - (corners.width / 2))
-				if (positionTop) corners.top = corners.top + (((corners.bottom - corners.top) * positionTop) - (corners.height / 2));
+				if (positionLeft) corners.left = Math.max(0, corners.left + (((corners.right - corners.left) * positionLeft) - (corners.width / 2)));
+				if (positionTop) corners.top = Math.max(0, corners.top + (((corners.bottom - corners.top) * positionTop) - (corners.height / 2)));
 			}
 			return corners;
 		};
